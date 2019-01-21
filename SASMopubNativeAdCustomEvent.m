@@ -1,62 +1,57 @@
 //
 //  SASMopubNativeAdCustomEvent.m
-//  Smart AdServer
+//  SmartAdServer
 //
 //  Created by Thomas Geley on 26/12/2016.
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "SASMopubNativeAdCustomEvent.h"
-#import "SASNativeAd.h"
-#import "SASNativeAdImage.h"
-#import "SASNativeAdManager.h"
 #import "SASMopubNativeAdAdapter.h"
-#import "SASMopubCustomEventConstants.h"
+#import "SASMopubUtils.h"
 
-#import "MPNativeAd.h"
-#import "MPNativeAdError.h"
-#import "MPLogging.h"
-#import "MPNativeAdConstants.h"
+NS_ASSUME_NONNULL_BEGIN
 
 @interface SASMopubNativeAdCustomEvent ()
-@property (nonatomic, strong) SASNativeAdManager *sasNativeAdManager;
-@end
 
+@property (nonatomic, strong, nullable) SASNativeAdManager *sasNativeAdManager;
+
+@end
 
 @implementation SASMopubNativeAdCustomEvent
 
 #pragma mark - Dealloc
 
 - (void)dealloc {
-    [self resetCustomEvent];
+    [self resetNativeAdManager];
 }
 
-
-- (void)resetCustomEvent {
-    //Reset AdManager
-    _sasNativeAdManager = nil;
+- (void)resetNativeAdManager {
+    self.sasNativeAdManager = nil;
 }
 
 #pragma mark - Custom Event Extension
 
 - (void)requestAdWithCustomEventInfo:(NSDictionary *)info {
     
-    //Reset custom event
-    [self resetCustomEvent];
+    // Reset native ad manager
+    [self resetNativeAdManager];
     
-    //Create Native Ad Placement from infos dictionary
-    SASNativeAdPlacement *placement = [[SASNativeAdPlacement alloc] initWithBaseURL:[NSURL URLWithString:kSASMopubBaseURLString]
-                                                                             siteID:[[info objectForKey:@"siteid"] integerValue]
-                                                                             pageID:[info objectForKey:@"pageid"]
-                                                                           formatID:[[info objectForKey:@"formatid"] integerValue]
-                                                                             target:[info objectForKey:@"target"]
-                                                                            timeout:10.0];
+    // Extracting placement from custom event info
+    NSError *error = nil;
+    SASAdPlacement *adPlacement = [SASMopubUtils adPlacementWithCustomEventInfo:info error:&error];
+    
+    if (adPlacement == nil) {
+        // Failing if custom info are invalid
+        [self.delegate nativeCustomEvent:self didFailToLoadAdWithError:error];
+        return;
+    }
         
-    //Create SASNativeAdManager and request placement
-    _sasNativeAdManager = [[SASNativeAdManager alloc] initWithPlacement:placement];
+    // Creating a native ad manager instance
+    self.sasNativeAdManager = [[SASNativeAdManager alloc] initWithPlacement:adPlacement];
     
-    //Request an ad
-    [_sasNativeAdManager requestAd:^(SASNativeAd * _Nullable ad, NSError * _Nullable error) {
+    // Requesting an ad for the current placement
+    [self.sasNativeAdManager requestAd:^(SASNativeAd * _Nullable ad, NSError * _Nullable error) {
         if (ad) {
             [self sasNativeAdDidLoad:ad];
         } else {
@@ -69,13 +64,14 @@
 #pragma mark - Ad Loading Methods
 
 - (void)sasNativeAdDidLoad:(SASNativeAd *)nativeAd {
-    //Init adapter
+    
+    // Adapter initialization
     SASMopubNativeAdAdapter *adAdapter = [[SASMopubNativeAdAdapter alloc] initWithSASNativeAd:nativeAd];
     
-    //Init mopub interface ad
+    // MoPub ad initialization
     MPNativeAd *interfaceAd = [[MPNativeAd alloc] initWithAdAdapter:adAdapter];
     
-    //Precache Images if possible
+    // Precaching images if possible…
     NSMutableArray *imageURLs = [NSMutableArray array];
     
     if (nativeAd.icon.URL) {
@@ -88,14 +84,14 @@
     
     [super precacheImagesWithURLs:imageURLs completionBlock:^(NSArray *errors) {
         if (errors) {
-            MPLogInfo(@"Error(s) when precaching SASNativeAd Image(s) : %@", errors);
+            MPLogInfo(@"Error(s) when precaching SASNativeAd image(s) : %@", errors);
             [self.delegate nativeCustomEvent:self didFailToLoadAdWithError:MPNativeAdNSErrorForImageDownloadFailure()];
         } else {
             [self.delegate nativeCustomEvent:self didLoadAd:interfaceAd];
         }
     }];
+    
 }
-
 
 - (void)sasNativeAdDidFailToLoadWithError:(NSError *)error {
     MPLogInfo(@"Error when loading SASNativeAd : %@", error);
@@ -103,3 +99,5 @@
 }
 
 @end
+
+NS_ASSUME_NONNULL_END

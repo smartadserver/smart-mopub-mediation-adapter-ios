@@ -1,20 +1,23 @@
 //
 //  SASMopubBannerCustomEvent.m
-//  Smart AdServer
+//  SmartAdServer
 //
 //  Created by Thomas Geley on 21/12/2016.
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "MPLogging.h"
-
-#import "SASMopubCustomEventConstants.h"
-#import "SASBannerView.h"
-#import "SASAdViewDelegate.h"
+#import "MoPub.h"
 #import "SASMopubBannerCustomEvent.h"
+#import "SASMopubUtils.h"
+#import <SASDisplayKit/SASDisplayKit.h>
 
-@interface SASMopubBannerCustomEvent () <SASAdViewDelegate>
-@property (nonatomic, strong) SASBannerView *bannerView;
+NS_ASSUME_NONNULL_BEGIN
+
+@interface SASMopubBannerCustomEvent () <SASBannerViewDelegate>
+
+@property (nonatomic, strong, nullable) SASBannerView *bannerView;
+
 @end
 
 @implementation SASMopubBannerCustomEvent
@@ -25,73 +28,68 @@
     [self destroyAdView];
 }
 
-
 - (void)destroyAdView {
-    if (self.bannerView) {
-        [self.bannerView removeFromSuperview];
-        self.bannerView.delegate = nil;
-        self.bannerView.modalParentViewController = nil;
-    }
+    self.bannerView.delegate = nil;
+    self.bannerView = nil;
 }
 
 #pragma mark - Request Ad
 
 - (void)requestAdWithSize:(CGSize)size customEventInfo:(NSDictionary *)info {
     
-    //Reset banner view
+    // Reset banner view
     [self destroyAdView];
     
-    //Set SiteID and baseURL
-    [SASAdView setSiteID:[[info objectForKey:@"siteid"] integerValue] baseURL:kSASMopubBaseURLString];
+    // Extracting placement from custom event info
+    NSError *error = nil;
+    SASAdPlacement *adPlacement = [SASMopubUtils adPlacementWithCustomEventInfo:info error:&error];
     
-    //Set location if enabled
-    CLLocation *location = self.delegate.location;
-    if (location) {
-         [SASAdView setLocation:location];
+    if (adPlacement == nil) {
+        // Failing if custom info are invalid
+        [self.delegate bannerCustomEvent:self didFailToLoadAdWithError:error];
+        return;
     }
     
-    //Create Banner
+    // Setting location if enabled
+    CLLocation *location = self.delegate.location;
+    if (location) {
+        [SASConfiguration sharedInstance].manualLocation = location.coordinate;
+    }
+    
+    // Creating a banner instance
     CGRect frame = CGRectMake(0, 0, size.width, size.height);
     self.bannerView = [[SASBannerView alloc] initWithFrame:frame];
     self.bannerView.delegate = self;
     self.bannerView.modalParentViewController = [self.delegate viewControllerForPresentingModalView];
     self.bannerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     
-    //Load ad from infos dictionary
-    [self.bannerView loadFormatId:[[info objectForKey:@"formatid"] integerValue] pageId:[info objectForKey:@"pageid"] master:YES target:[info objectForKey:@"target"]];
+    // Loading ad from ad placement
+    [self.bannerView loadWithPlacement:adPlacement];
     
 }
 
-#pragma mark - SASAdViewDelegate
+#pragma mark - Banner delegate
 
-- (void)adViewDidLoad:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Banner did load");
+- (void)bannerViewDidLoad:(SASBannerView *)bannerView {
+    MPLogInfo(@"Smart Banner did load");
     [self.delegate bannerCustomEvent:self didLoadAd:self.bannerView];
 }
 
-
-- (void)adView:(SASAdView *)adView didFailToLoadWithError:(NSError *)error {
-    MPLogInfo(@"Smart AdServer Banner failed to load with error: %@", error.localizedDescription);
+- (void)bannerView:(SASBannerView *)bannerView didFailToLoadWithError:(NSError *)error {
+    MPLogInfo(@"Smart Banner failed to load with error: %@", error.localizedDescription);
     [self.delegate bannerCustomEvent:self didFailToLoadAdWithError:error];
 }
 
-
-- (void)adView:(SASAdView *)adView willPerformActionWithExit:(BOOL)willExit {
-    MPLogInfo(@"Smart AdServer Banner will leave the application");
-    [self.delegate bannerCustomEventWillLeaveApplication:self];
-}
-
-
-- (void)adViewWillPresentModalView:(SASAdView *)adView {
-     MPLogInfo(@"Smart AdServer Banner will present modal");
+- (void)bannerViewWillPresentModalView:(SASBannerView *)bannerView {
+    MPLogInfo(@"Smart Banner will present modal");
     [self.delegate bannerCustomEventWillBeginAction:self];
 }
 
-
-- (void)adViewWillDismissModalView:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Banner did dismiss modal");
+- (void)bannerViewWillDismissModalView:(SASBannerView *)bannerView {
+    MPLogInfo(@"Smart Banner did dismiss modal");
     [self.delegate bannerCustomEventDidFinishAction:self];
 }
 
-
 @end
+
+NS_ASSUME_NONNULL_END

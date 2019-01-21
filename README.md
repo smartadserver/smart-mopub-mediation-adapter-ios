@@ -4,20 +4,21 @@ Smart AdServer - MoPub SDK Adapter for iOS
 Introduction
 ------------
 
-The **_Smart Display SDK_** (6.10+) can be used with **_MoPub SDK_** through _Custom Event Classes_ provided in this repository.
+The **_Smart Display SDK_** (7.0+) can be used with **_MoPub SDK_** through _Custom Event Classes_ provided in this repository.
 Supported Ad Formats are _Banners_, _Fullscreen_, _Rewarded Video_ and _Native Ads_.
 
 
 Setup
 -----
 
-1) Install the **_Smart Display SDK_** in your Xcode project. This can be done by following the instructions in our [documentation](http://help.smartadserver.com/iOS/V6.10/#IntegrationGuides/Installation.htm%3FTocPath%3DGetting%20started%7C_____1).
+1) Install the **_Smart Display SDK_** in your Xcode project. This can be done using [Cocoapods](https://cocoapods.org/) (by installing the ```Smart-Display-SDK``` pod).
 
 2) Checkout this repository and copy the **Custom Event Classes** you need into your XCode Project.
   * _`SASMopubBannerCustomEvent`_ for banner ads.
   * _`SASMopubInterstitialCustomEvent`_ for interstitial ads.
   * _`SASMopubRewardedVideoCustomEvent`_ for rewarded videos.
   * _`SASMopubNativeAdAdapter`_ **and** _`SASMopubNativeAdCustomEvent`_ for native ads.
+  * _`SASMopubUtils`_ in any cases.
 
 3) Edit the _`SASMopubUtils`_ header and replace the **`SASMopubAdapterBaseURLString`** with your dedicated baseURL.
 

@@ -1,26 +1,22 @@
 //
 //  SASMopubRewardedVideoCustomEvent.m
-//  Smart AdServer
+//  SmartAdServer
 //
 //  Created by Thomas Geley on 22/12/2016.
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "SASMopubRewardedVideoCustomEvent.h"
+#import "MoPub.h"
+#import "SASMopubUtils.h"
+#import <SASDisplayKit/SASDisplayKit.h>
 
-#import "MPLogging.h"
-#import "MPRewardedVideoReward.h"
+NS_ASSUME_NONNULL_BEGIN
 
-#import "SASMopubCustomEventConstants.h"
-#import "SASInterstitialView.h"
-#import "SASAdViewDelegate.h"
-#import "SASReward.h"
+@interface SASMopubRewardedVideoCustomEvent () <SASRewardedVideoManagerDelegate>
 
-@interface SASMopubRewardedVideoCustomEvent () <SASAdViewDelegate>
-@property (nonatomic, strong) SASInterstitialView *interstitial;
-@property (nonatomic, assign) BOOL adLoaded;
-@property (nonatomic, assign) BOOL clickTracked;
-@property (nonatomic, assign) BOOL impressionTracked;
+@property (nonatomic, strong, nullable) SASRewardedVideoManager *rewardedVideoManager;
+
 @end
 
 @implementation SASMopubRewardedVideoCustomEvent
@@ -28,104 +24,97 @@
 #pragma mark - Object Lifecycle
 
 - (void)dealloc {
-    [self destroyAdView];
+    [self destroyRewardedVideoManager];
 }
 
-
-- (void)destroyAdView {
-    if (self.interstitial) {
-        [self.interstitial removeFromSuperview];
-        self.interstitial.delegate = nil;
-        self.interstitial.modalParentViewController = nil;
-    }
-    _adLoaded = NO;
-    _impressionTracked = NO;
-    _clickTracked = NO;
+- (void)destroyRewardedVideoManager {
+    self.rewardedVideoManager.delegate = nil;
+    self.rewardedVideoManager = nil;
 }
 
 #pragma mark - Request Ad
 
 - (BOOL)hasAdAvailable {
-    return _adLoaded;
+    return self.rewardedVideoManager.adStatus == SASAdStatusReady;
 }
-
 
 - (void)requestRewardedVideoWithCustomEventInfo:(NSDictionary *)info {
     
-    //Reset banner view
-    [self destroyAdView];
+    // Reset rewarded video manager
+    [self destroyRewardedVideoManager];
     
-    //Set SiteID and baseURL
-    [SASAdView setSiteID:[[info objectForKey:@"siteid"] integerValue] baseURL:kSASMopubBaseURLString];
+    // Extracting placement from custom event info
+    NSError *error = nil;
+    SASAdPlacement *adPlacement = [SASMopubUtils adPlacementWithCustomEventInfo:info error:&error];
     
-    //Location is not enabled for rewarded videos...
+    if (adPlacement == nil) {
+        // Failing if custom info are invalid
+        [self.delegate rewardedVideoDidFailToLoadAdForCustomEvent:self error:error];
+        return;
+    }
     
-    //Create AdView
-    CGRect frame = [[self rootView] bounds];
-    self.interstitial = [[SASInterstitialView alloc] initWithFrame:frame];;
-    self.interstitial.delegate = self;
+    // Location is not enabled for rewarded videos…
+    // It is therefore not forwarded to the Smart Display SDK
     
-    //Load ad from infos dictionary
-    [self.interstitial loadFormatId:[[info objectForKey:@"formatid"] integerValue] pageId:[info objectForKey:@"pageid"] master:YES target:[info objectForKey:@"target"]];    
+    // Creating a new rewarded video manager
+    self.rewardedVideoManager = [[SASRewardedVideoManager alloc] initWithPlacement:adPlacement delegate:self];
+    
+    // Loading ad from ad placement
+    [self.rewardedVideoManager load];
+    
 }
-
 
 - (void)presentRewardedVideoFromViewController:(UIViewController *)viewController {
-    self.interstitial.modalParentViewController = viewController;
-    [self.delegate rewardedVideoWillAppearForCustomEvent:self];
-    [[self rootView] addSubview:self.interstitial];
-    [self.delegate rewardedVideoDidAppearForCustomEvent:self];
+    if (self.rewardedVideoManager.adStatus == SASAdStatusReady) {
+        [self.rewardedVideoManager showFromViewController:viewController];
+    }
 }
-
-
-- (UIView *)rootView {
-    return [[[[[UIApplication sharedApplication] delegate] window] rootViewController] view];
-}
-
 
 - (BOOL)enableAutomaticImpressionAndClickTracking {
     return YES;
 }
 
-#pragma mark - SASAdViewDelegate
+#pragma mark - Rewarded video manager
 
-- (void)adViewDidLoad:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial Did Load");
-    _adLoaded = YES;
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didLoadAd:(SASAd *)ad {
+    MPLogInfo(@"Smart Rewarded Video did load");
     [self.delegate rewardedVideoDidLoadAdForCustomEvent:self];
 }
 
-
-- (void)adView:(SASAdView *)adView didFailToLoadWithError:(NSError *)error {
-    MPLogInfo(@"Smart AdServer Interstitial failed to load with error: %@", error.localizedDescription);
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didFailToLoadWithError:(NSError *)error {
+    MPLogInfo(@"Smart Rewarded Video did fail to load with error: %@", error.localizedDescription);
     [self.delegate rewardedVideoDidFailToLoadAdForCustomEvent:self error:error];
 }
 
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didFailToShowWithError:(NSError *)error {
+    MPLogInfo(@"Smart Rewarded Video did fail to show with error: %@", error.localizedDescription);
+    [self.delegate rewardedVideoDidFailToPlayForCustomEvent:self error:error];
+}
 
-- (void)adViewDidDisappear:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial Did Disappear");
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didAppearFromViewController:(UIViewController *)viewController {
+    MPLogInfo(@"Smart Rewarded Video did appear");
+    [self.delegate rewardedVideoWillAppearForCustomEvent:self];
+    [self.delegate rewardedVideoDidAppearForCustomEvent:self];
+}
+
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didDisappearFromViewController:(UIViewController *)viewController {
+    MPLogInfo(@"Smart Rewarded Video did disappear");
     [self.delegate rewardedVideoWillDisappearForCustomEvent:self];
     [self.delegate rewardedVideoDidDisappearForCustomEvent:self];
 }
 
-
-- (void)adView:(SASAdView *)adView willPerformActionWithExit:(BOOL)willExit {
-    MPLogInfo(@"Smart AdServer Interstitial will leave the application");
-    [self.delegate rewardedVideoWillLeaveApplicationForCustomEvent:self];
-}
-
-
-- (void)adViewWillPresentModalView:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial will present modal");
-    [self.delegate rewardedVideoDidReceiveTapEventForCustomEvent:self];
-}
-
-
-- (void)adView:(SASAdView *)adView didCollectReward:(nonnull SASReward *)reward {
-     MPLogInfo(@"Smart AdServer Interstitial didCollect Reward");
+- (void)rewardedVideoManager:(SASRewardedVideoManager *)manager didCollectReward:(SASReward *)reward {
+    MPLogInfo(@"Smart Rewarded Video did collect reward");
     MPRewardedVideoReward *mopubConvertedReward = [[MPRewardedVideoReward alloc] initWithCurrencyType:reward.currency amount:reward.amount];
     [self.delegate rewardedVideoShouldRewardUserForCustomEvent:self reward:mopubConvertedReward];
 }
 
+- (BOOL)rewardedVideoManager:(SASRewardedVideoManager *)manager shouldHandleURL:(NSURL *)URL {
+    MPLogInfo(@"Smart Rewarded Video did receive tap");
+    [self.delegate rewardedVideoDidReceiveTapEventForCustomEvent:self];
+    return YES;
+}
 
 @end
+
+NS_ASSUME_NONNULL_END

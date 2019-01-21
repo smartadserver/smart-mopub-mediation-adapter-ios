@@ -1,23 +1,22 @@
 //
 //  SASMopubInterstitialCustomEvent.m
-//  Smart AdServer
+//  SmartAdServer
 //
 //  Created by Thomas Geley on 21/12/2016.
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "SASMopubInterstitialCustomEvent.h"
-#import "MPLogging.h"
+#import "MoPub.h"
+#import "SASMopubUtils.h"
+#import <SASDisplayKit/SASDisplayKit.h>
 
-#import "SASMopubCustomEventConstants.h"
-#import "SASInterstitialView.h"
-#import "SASAdViewDelegate.h"
+NS_ASSUME_NONNULL_BEGIN
 
-@interface SASMopubInterstitialCustomEvent () <SASAdViewDelegate>
-@property (nonatomic, strong) SASInterstitialView *interstitial;
-@property (nonatomic, assign) BOOL adLoaded;
-@property (nonatomic, assign) BOOL clickTracked;
-@property (nonatomic, assign) BOOL impressionTracked;
+@interface SASMopubInterstitialCustomEvent () <SASInterstitialManagerDelegate>
+
+@property (nonatomic, strong, nullable) SASInterstitialManager *interstitialManager;
+
 @end
 
 @implementation SASMopubInterstitialCustomEvent
@@ -25,95 +24,85 @@
 #pragma mark - Object Lifecycle
 
 - (void)dealloc {
-    [self destroyAdView];
+    [self destroyInterstitialManager];
 }
 
-
-- (void)destroyAdView {
-    if (self.interstitial) {
-        [self.interstitial removeFromSuperview];
-        self.interstitial.delegate = nil;
-        self.interstitial.modalParentViewController = nil;
-    }
-    _adLoaded = NO;
-    _impressionTracked = NO;
-    _clickTracked = NO;
+- (void)destroyInterstitialManager {
+    self.interstitialManager.delegate = nil;
+    self.interstitialManager = nil;
 }
 
 #pragma mark - Request Ad
 
-- (void)requestInterstitialWithCustomEventInfo:(NSDictionary *)info; {
+- (void)requestInterstitialWithCustomEventInfo:(NSDictionary *)info {
     
-    //Reset banner view
-    [self destroyAdView];
+    // Reset interstitial manager
+    [self destroyInterstitialManager];
     
-    //Set SiteID and baseURL
-    [SASAdView setSiteID:[[info objectForKey:@"siteid"] integerValue] baseURL:kSASMopubBaseURLString];
+    // Extracting placement from custom event info
+    NSError *error = nil;
+    SASAdPlacement *adPlacement = [SASMopubUtils adPlacementWithCustomEventInfo:info error:&error];
     
-    //Set location if enabled
-    CLLocation *location = self.delegate.location;
-    if (location) {
-        [SASAdView setLocation:location];
+    if (adPlacement == nil) {
+        // Failing if custom info are invalid
+        [self.delegate interstitialCustomEvent:self didFailToLoadAdWithError:error];
+        return;
     }
     
-    //Create AdView
-    CGRect frame = [[self rootView] bounds];
-    self.interstitial = [[SASInterstitialView alloc] initWithFrame:frame];
-    self.interstitial.delegate = self;
+    // Setting location if enabled
+    CLLocation *location = self.delegate.location;
+    if (location) {
+        [SASConfiguration sharedInstance].manualLocation = location.coordinate;
+    }
     
-    //Load ad from infos dictionary
-    [self.interstitial loadFormatId:[[info objectForKey:@"formatid"] integerValue] pageId:[info objectForKey:@"pageid"] master:YES target:[info objectForKey:@"target"]];    
+    // Creating a new interstitial manager
+    self.interstitialManager = [[SASInterstitialManager alloc] initWithPlacement:adPlacement delegate:self];
+    
+    // Loading ad from ad placement
+    [self.interstitialManager load];
+    
 }
-
 
 - (void)showInterstitialFromRootViewController:(UIViewController *)rootViewController {
-    self.interstitial.modalParentViewController = rootViewController;
-    [self.delegate interstitialCustomEventWillAppear:self];
-    [[self rootView] addSubview:self.interstitial];
-    [self.delegate interstitialCustomEventDidAppear:self];
+    if (self.interstitialManager.adStatus == SASAdStatusReady) {
+        [self.interstitialManager showFromViewController:rootViewController];
+    }
 }
-
 
 - (BOOL)enableAutomaticImpressionAndClickTracking {
     return YES;
 }
 
+#pragma mark - Interstitial manager delegate
 
-- (UIView *)rootView {
-    return [[[[[UIApplication sharedApplication] delegate] window] rootViewController] view];
+- (void)interstitialManager:(SASInterstitialManager *)manager didLoadAd:(SASAd *)ad {
+    MPLogInfo(@"Smart Interstitial did load");
+    [self.delegate interstitialCustomEvent:self didLoadAd:self.interstitialManager];
 }
 
-#pragma mark - SASAdViewDelegate
-
-- (void)adViewDidLoad:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial Did Load");
-    _adLoaded = YES;
-    [self.delegate interstitialCustomEvent:self didLoadAd:self.interstitial];
-}
-
-
-- (void)adView:(SASAdView *)adView didFailToLoadWithError:(NSError *)error {
-    MPLogInfo(@"Smart AdServer Interstitial failed to load with error: %@", error.localizedDescription);
+- (void)interstitialManager:(SASInterstitialManager *)manager didFailToLoadWithError:(NSError *)error {
+    MPLogInfo(@"Smart Interstitial failed to load with error: %@", error.localizedDescription);
     [self.delegate interstitialCustomEvent:self didFailToLoadAdWithError:error];
 }
 
+- (void)interstitialManager:(SASInterstitialManager *)manager didAppearFromViewController:(UIViewController *)viewController {
+    MPLogInfo(@"Smart Interstitial did appear");
+    [self.delegate interstitialCustomEventWillAppear:self];
+    [self.delegate interstitialCustomEventDidAppear:self];
+}
 
-- (void)adViewDidDisappear:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial Did Disappear");
+- (void)interstitialManager:(SASInterstitialManager *)manager didDisappearFromViewController:(UIViewController *)viewController {
+    MPLogInfo(@"Smart Interstitial did disappear");
     [self.delegate interstitialCustomEventWillDisappear:self];
     [self.delegate interstitialCustomEventDidDisappear:self];
 }
 
-
-- (void)adView:(SASAdView *)adView willPerformActionWithExit:(BOOL)willExit {
-    MPLogInfo(@"Smart AdServer Interstitial will leave the application");
-    [self.delegate interstitialCustomEventWillLeaveApplication:self];
-}
-
-
-- (void)adViewWillPresentModalView:(SASAdView *)adView {
-    MPLogInfo(@"Smart AdServer Interstitial will present modal");
+- (BOOL)interstitialManager:(SASInterstitialManager *)manager shouldHandleURL:(NSURL *)URL {
+    MPLogInfo(@"Smart Interstitial did receive tap event");
     [self.delegate interstitialCustomEventDidReceiveTapEvent:self];
+    return YES;
 }
 
 @end
+
+NS_ASSUME_NONNULL_END
