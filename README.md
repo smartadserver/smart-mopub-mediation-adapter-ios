@@ -18,7 +18,6 @@ Setup
   * _`SASMopubInterstitialCustomEvent`_ for interstitial ads.
   * _`SASMopubRewardedVideoCustomEvent`_ for rewarded videos.
   * _`SASMopubNativeAdAdapter`_ **and** _`SASMopubNativeAdCustomEvent`_ for native ads.
-  * _`SASMopubUtils`_ in any cases.
 
 3) Edit the _`SASMopubUtils`_ header and replace the **`SASMopubAdapterBaseURLString`** with your dedicated baseURL.
 
