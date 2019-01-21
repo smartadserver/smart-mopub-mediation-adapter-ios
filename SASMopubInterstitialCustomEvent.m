@@ -1,27 +1,17 @@
 //
 //  SASMopubInterstitialCustomEvent.m
+//  Smart AdServer
 //
 //  Created by Thomas Geley on 21/12/2016.
-//  Copyright © 2016 Smart AdServer. All rights reserved.
+//  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "SASMopubInterstitialCustomEvent.h"
 #import "MPLogging.h"
-#import "MPInstanceProvider.h"
 
 #import "SASMopubCustomEventConstants.h"
 #import "SASInterstitialView.h"
 #import "SASAdViewDelegate.h"
-
-@interface MPInstanceProvider (SmartAdServerInterstitials)
-- (SASInterstitialView *)createSASInterstitialViewWithFrame:(CGRect)frame;
-@end
-
-@implementation MPInstanceProvider (SmartAdServerInterstitials)
-- (SASInterstitialView *)createSASInterstitialViewWithFrame:(CGRect)frame {
-    return [[SASInterstitialView alloc] initWithFrame:frame];
-}
-@end
 
 @interface SASMopubInterstitialCustomEvent () <SASAdViewDelegate>
 @property (nonatomic, strong) SASInterstitialView *interstitial;
@@ -68,7 +58,7 @@
     
     //Create AdView
     CGRect frame = [[self rootView] bounds];
-    self.interstitial = [[MPInstanceProvider sharedProvider] createSASInterstitialViewWithFrame:frame];
+    self.interstitial = [[SASInterstitialView alloc] initWithFrame:frame];
     self.interstitial.delegate = self;
     
     //Load ad from infos dictionary

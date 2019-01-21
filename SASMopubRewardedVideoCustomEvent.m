@@ -1,31 +1,20 @@
 //
 //  SASMopubRewardedVideoCustomEvent.m
-//  MoPubSampleApp
+//  Smart AdServer
 //
 //  Created by Thomas Geley on 22/12/2016.
-//  Copyright © 2016 Smart AdServer. All rights reserved.
+//  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "SASMopubRewardedVideoCustomEvent.h"
 
 #import "MPLogging.h"
-#import "MPInstanceProvider.h"
 #import "MPRewardedVideoReward.h"
 
 #import "SASMopubCustomEventConstants.h"
 #import "SASInterstitialView.h"
 #import "SASAdViewDelegate.h"
 #import "SASReward.h"
-
-@interface MPInstanceProvider (SmartAdServerRewarded)
-- (SASInterstitialView *)createSASInterstitialViewWithFrame:(CGRect)frame;
-@end
-
-@implementation MPInstanceProvider (SmartAdServerRewarded)
-- (SASInterstitialView *)createSASInterstitialViewWithFrame:(CGRect)frame {
-    return [[SASInterstitialView alloc] initWithFrame:frame];
-}
-@end
 
 @interface SASMopubRewardedVideoCustomEvent () <SASAdViewDelegate>
 @property (nonatomic, strong) SASInterstitialView *interstitial;
@@ -73,7 +62,7 @@
     
     //Create AdView
     CGRect frame = [[self rootView] bounds];
-    self.interstitial = [[MPInstanceProvider sharedProvider] createSASInterstitialViewWithFrame:frame];
+    self.interstitial = [[SASInterstitialView alloc] initWithFrame:frame];;
     self.interstitial.delegate = self;
     
     //Load ad from infos dictionary

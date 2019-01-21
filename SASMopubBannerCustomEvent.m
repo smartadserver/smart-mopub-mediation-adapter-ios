@@ -1,27 +1,17 @@
 //
 //  SASMopubBannerCustomEvent.m
+//  Smart AdServer
 //
 //  Created by Thomas Geley on 21/12/2016.
-//  Copyright © 2016 Smart AdServer. All rights reserved.
+//  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
 #import "MPLogging.h"
-#import "MPInstanceProvider.h"
 
 #import "SASMopubCustomEventConstants.h"
 #import "SASBannerView.h"
 #import "SASAdViewDelegate.h"
 #import "SASMopubBannerCustomEvent.h"
-
-@interface MPInstanceProvider (SmartAdServerBanners)
-- (SASBannerView *)createSASBannerViewWithFrame:(CGRect)frame;
-@end
-
-@implementation MPInstanceProvider (SmartAdServerBanners)
-- (SASBannerView *)createSASBannerViewWithFrame:(CGRect)frame {
-    return [[SASBannerView alloc] initWithFrame:frame];
-}
-@end
 
 @interface SASMopubBannerCustomEvent () <SASAdViewDelegate>
 @property (nonatomic, strong) SASBannerView *bannerView;
@@ -62,7 +52,7 @@
     
     //Create Banner
     CGRect frame = CGRectMake(0, 0, size.width, size.height);
-    self.bannerView = [[MPInstanceProvider sharedProvider] createSASBannerViewWithFrame:frame];
+    self.bannerView = [[SASBannerView alloc] initWithFrame:frame];
     self.bannerView.delegate = self;
     self.bannerView.modalParentViewController = [self.delegate viewControllerForPresentingModalView];
     self.bannerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
