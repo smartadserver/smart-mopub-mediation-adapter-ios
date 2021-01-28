@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @implementation SASMopubBannerCustomEvent
+@dynamic delegate;
+@dynamic localExtras;
 
 #pragma mark - Object Lifecycle
 
@@ -33,9 +35,13 @@ NS_ASSUME_NONNULL_BEGIN
     self.bannerView = nil;
 }
 
-#pragma mark - Request Ad
+#pragma mark - MPInlineAdAdapter Override
 
-- (void)requestAdWithSize:(CGSize)size customEventInfo:(NSDictionary *)info {
+- (BOOL)enableAutomaticImpressionAndClickTracking {
+    return YES;
+}
+
+- (void)requestAdWithSize:(CGSize)size adapterInfo:(NSDictionary *)info adMarkup:(NSString * _Nullable)adMarkup {
     
     // Reset banner view
     [self destroyAdView];
@@ -46,21 +52,15 @@ NS_ASSUME_NONNULL_BEGIN
     
     if (adPlacement == nil) {
         // Failing if custom info are invalid
-        [self.delegate bannerCustomEvent:self didFailToLoadAdWithError:error];
+        [self.delegate inlineAdAdapter:self didFailToLoadAdWithError:error];
         return;
-    }
-    
-    // Setting location if enabled
-    CLLocation *location = self.delegate.location;
-    if (location) {
-        [SASConfiguration sharedInstance].manualLocation = location.coordinate;
     }
     
     // Creating a banner instance
     CGRect frame = CGRectMake(0, 0, size.width, size.height);
     self.bannerView = [[SASBannerView alloc] initWithFrame:frame];
     self.bannerView.delegate = self;
-    self.bannerView.modalParentViewController = [self.delegate viewControllerForPresentingModalView];
+    self.bannerView.modalParentViewController = [self.delegate inlineAdAdapterViewControllerForPresentingModalView:self];
     self.bannerView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     
     // Loading ad from ad placement
@@ -72,22 +72,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)bannerViewDidLoad:(SASBannerView *)bannerView {
     MPLogInfo(@"Smart Banner did load");
-    [self.delegate bannerCustomEvent:self didLoadAd:self.bannerView];
+    [self.delegate inlineAdAdapter:self didLoadAdWithAdView:self.bannerView];
 }
 
 - (void)bannerView:(SASBannerView *)bannerView didFailToLoadWithError:(NSError *)error {
     MPLogInfo(@"Smart Banner failed to load with error: %@", error.localizedDescription);
-    [self.delegate bannerCustomEvent:self didFailToLoadAdWithError:error];
+    [self.delegate inlineAdAdapter:self didFailToLoadAdWithError:error];
 }
 
 - (void)bannerViewWillPresentModalView:(SASBannerView *)bannerView {
     MPLogInfo(@"Smart Banner will present modal");
-    [self.delegate bannerCustomEventWillBeginAction:self];
+    [self.delegate inlineAdAdapterWillBeginUserAction:self];
 }
 
 - (void)bannerViewWillDismissModalView:(SASBannerView *)bannerView {
     MPLogInfo(@"Smart Banner did dismiss modal");
-    [self.delegate bannerCustomEventDidFinishAction:self];
+    [self.delegate inlineAdAdapterDidEndUserAction:self];
 }
 
 @end

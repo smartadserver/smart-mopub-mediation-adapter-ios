@@ -6,11 +6,11 @@
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
-#import "MPInterstitialCustomEvent.h"
+#import "MPFullscreenAdAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface SASMopubInterstitialCustomEvent : MPInterstitialCustomEvent
+@interface SASMopubInterstitialCustomEvent : MPFullscreenAdAdapter <MPThirdPartyFullscreenAdAdapter>
 
 @end
 

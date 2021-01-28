@@ -6,11 +6,11 @@
 //  Copyright © 2019 Smart AdServer. All rights reserved.
 //
 
-#import "MPBannerCustomEvent.h"
+#import "MPInlineAdAdapter.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface SASMopubBannerCustomEvent : MPBannerCustomEvent
+@interface SASMopubBannerCustomEvent : MPInlineAdAdapter <MPThirdPartyInlineAdAdapter>
 
 @end
 

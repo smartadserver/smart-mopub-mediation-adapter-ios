@@ -35,7 +35,8 @@ NS_ASSUME_NONNULL_BEGIN
                                                        keywordTargeting:[info objectForKey:@"target"]];
     
     // Setting the site ID and the base URL
-    [[SASConfiguration sharedInstance] configureWithSiteId:adPlacement.siteId baseURL:SASMopubAdapterBaseURLString];
+    [[SASConfiguration sharedInstance] configureWithSiteId:adPlacement.siteId];
+    [[SASConfiguration sharedInstance] setPrimarySDK:NO];
     
     return adPlacement;
 }
