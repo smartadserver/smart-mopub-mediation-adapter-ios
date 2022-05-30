@@ -1,6 +1,10 @@
 Smart AdServer - MoPub SDK Adapter for iOS
 ==============================================
 
+Deprecated
+----------
+This repository and those adapters are now deprecated. They are not supported and will not be updated anymore.
+
 Introduction
 ------------
 
